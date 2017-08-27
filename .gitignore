@@ -1,0 +1,4 @@
+wvtool.egg-info/
+**/*.pyc
+**/.ipynb_checkpoints/
+**/data
