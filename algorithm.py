@@ -2,16 +2,20 @@ import numpy as np
 from numpy.linalg import norm
 import random
 
-def split_greedy(docmat, min_gain=None, max_splits=None):
+from collections import namedtuple
+Segmentation = namedtuple('Segmentation',
+                          'total splits gains min_gain optimal')
+
+def split_greedy(docmat, penalty=None, max_splits=None):
     """
     Iteratively segment a document into segments being greedy about the
     next choice. This gives very accurate results on crafted documents, i.e.
     artificial concatenations of random documents.
 
-    `min_gain` is the minimum quantity a split has to improve the score to be
+    `penalty` is the minimum quantity a split has to improve the score to be
     made. If not given `total` is not computed.
     `max_splits` is a limit on the number of splits.
-    Either `min_gain` or `max_splits` have to be given.
+    Either `penalty` or `max_splits` have to be given.
 
     Whenever the iteration reaches the while block the following holds:
     `cuts` == splits + [L] where splits are the segment start indices
@@ -24,20 +28,20 @@ def split_greedy(docmat, min_gain=None, max_splits=None):
     These quantities are repaired after determining a next split from `scores`.
 
     Returns `total`, `splits`, `gains` where
-    - `total` is the score diminished by len(splits) * min_gain to make it
+    - `total` is the score diminished by len(splits) * penalty to make it
       continuous in the input. It is comparable to the output of split_optimal.
     - `splits` is the list of splits
     - `gains` is a list of uplift each split contributes vs. leaving it out
 
     Note: The splitting strategy suggests all resulting splits will have gain at
-    least `min_gain`. This is not the case as new splits can decrease the gain
+    least `penalty`. This is not the case as new splits can decrease the gain
     of others. This can be repaired by blocking positions where a split would
-    decreas the gain of an existing one to less than `min_gain` but is not
+    decreas the gain of an existing one to less than `penalty` but is not
     impemented here.
     """
     L, dim = docmat.shape
 
-    assert max_splits is not None or (min_gain is not None and min_gain > 0)
+    assert max_splits is not None or (penalty is not None and penalty > 0)
 
     # norm(cumvecs[j] - cumvecs[i]) == norm(w_i + ... + w_{j-1})
     cumvecs = np.cumsum(np.vstack((np.zeros((1, dim)), docmat)), axis=0)
@@ -53,6 +57,7 @@ def split_greedy(docmat, min_gain=None, max_splits=None):
     score_out[0] = -np.inf  # forbidden split position
     score = score_out + score_l + score_r
 
+    min_gain = np.inf
     while True:
         split = np.argmax(score)
 
@@ -62,10 +67,11 @@ def split_greedy(docmat, min_gain=None, max_splits=None):
         cut_l = max([c for c in cuts if c < split])
         cut_r = min([c for c in cuts if split < c])
         split_gain = score_l[split] + score_r[split] - segscore[cut_l]
-
-        if min_gain is not None:
-            if split_gain < min_gain:
+        if penalty is not None:
+            if split_gain < penalty:
                 break
+
+        min_gain = min(min_gain, split_gain)
 
         segscore[cut_l] = score_l[split]
         segscore[split] = score_r[split]
@@ -94,18 +100,19 @@ def split_greedy(docmat, min_gain=None, max_splits=None):
 
     cuts = sorted(cuts)
     splits = cuts[1:-1]
-    if min_gain is None:
+    if penalty is None:
         total = None
     else:
         total = sum(
             norm(cumvecs[l, :] - cumvecs[r, :], ord=2)
-            for l, r in zip(cuts[: -1], cuts[1:])) - len(splits) * min_gain
+            for l, r in zip(cuts[: -1], cuts[1:])) - len(splits) * penalty
     gains = []
     for beg, cen, end in zip(cuts[:-2], cuts[1:-1], cuts[2:]):
         no_split_score = norm(cumvecs[end, :] - cumvecs[beg, :], ord=2)
         gains.append(segscore[beg] + segscore[cen] - no_split_score)
 
-    return total, splits, gains
+    return Segmentation(total, splits, gains,
+                        min_gain=min_gain, optimal=None)
 
 
 def split_optimal(docmat, penalty, seg_limit=None):
@@ -154,28 +161,28 @@ def split_optimal(docmat, penalty, seg_limit=None):
 
     total = colmax[-1] + penalty
 
-    if seg_limit is not None:
-        return total, splits, gains, optimal
-    else:
-        return total, splits, gains
+    return Segmentation(total, splits, gains,
+                        min_gain=None, optimal=optimal)
 
 
 def get_penalty(docmats, segment_len):
     """
     Determine penalty for segments having length `segment_len` on average.
     This is achieved by stochastically rounding the expected number
-    of splits per document `max_splits` and averaging the two lowest gains for
-    splitting the document `max_splits` + 1 times.
+    of splits per document `max_splits` and taking the minimal split_gain that
+    occurs in split_greedy given `max_splits`.
     """
     penalties = []
     for docmat in docmats:
         avg_n_seg = docmat.shape[0] / segment_len
         max_splits = int(avg_n_seg) + (random.random() < avg_n_seg % 1) - 1
         if max_splits >= 1:
-            _, _, nextgains = split_greedy(docmat, max_splits=max_splits + 1)
-            low_gains = sorted(nextgains)[:2]
-            penalties.append(1/2 * low_gains[0] + 1/2 * low_gains[1])
-    return np.mean(penalties)
+            seg = split_greedy(docmat, max_splits=max_splits)
+            if seg.min_gain < np.inf:
+                penalties.append(seg.min_gain)
+    if len(penalties) > 0:
+        return np.mean(penalties)
+    raise ValueError('All documents too short for given segment_len.')
 
 
 def P_k(splits_ref, splits_hyp, N):
@@ -227,7 +234,7 @@ def get_gains(docmat, splits, width=None):
                                      slice(cen, end),  # right context
                                      slice(beg, end)]  # total context
 
-        gains.append([norm(docmat[slice_l, :].sum(axis=0), ord=2) +
-                      norm(docmat[slice_r, :].sum(axis=0), ord=2) -
-                      norm(docmat[slice_t, :].sum(axis=0), ord=2)])
+        gains.append(norm(docmat[slice_l, :].sum(axis=0), ord=2) +
+                     norm(docmat[slice_r, :].sum(axis=0), ord=2) -
+                     norm(docmat[slice_t, :].sum(axis=0), ord=2))
     return gains
