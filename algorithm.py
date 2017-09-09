@@ -50,7 +50,7 @@ def split_greedy(docmat, min_gain=None, max_splits=None):
     score_l = norm(cumvecs[:L, :] - cumvecs[0, :], axis=1, ord=2)
     score_r = norm(cumvecs[L, :] - cumvecs[:L, :], axis=1, ord=2)
     score_out = np.zeros(L)
-    score_out[0] = -np.inf # forbidden split position
+    score_out[0] = -np.inf  # forbidden split position
     score = score_out + score_l + score_r
 
     while True:
@@ -97,8 +97,9 @@ def split_greedy(docmat, min_gain=None, max_splits=None):
     if min_gain is None:
         total = None
     else:
-        total = sum(norm(cumvecs[l, :] - cumvecs[r, :], ord=2)
-            for l, r in zip(cuts[:-1], cuts[1:])) - len(splits) * min_gain
+        total = sum(
+            norm(cumvecs[l, :] - cumvecs[r, :], ord=2)
+            for l, r in zip(cuts[: -1], cuts[1:])) - len(splits) * min_gain
     gains = []
     for beg, cen, end in zip(cuts[:-2], cuts[1:-1], cuts[2:]):
         no_split_score = norm(cumvecs[end, :] - cumvecs[beg, :], ord=2)
@@ -126,7 +127,7 @@ def split_optimal(docmat, penalty, seg_limit=None):
     assert lim > 0
     assert penalty > 0
 
-    acc = np.full((L,lim), -np.inf, dtype=np.float32)
+    acc = np.full((L, lim), -np.inf, dtype=np.float32)
     colmax = np.full((L,), -np.inf, dtype=np.float32)
     ptr = np.zeros(L, dtype=np.int32)
 
@@ -192,7 +193,7 @@ def P_k(splits_ref, splits_hyp, N):
 
     acc = 0
     for i in range(N-k):
-        acc += is_split_between(ref,i,i+k) != is_split_between(hyp,i,i+k)
+        acc += is_split_between(ref, i, i+k) != is_split_between(hyp, i, i+k)
 
     return acc / (N-k)
 
@@ -204,7 +205,8 @@ def get_total(docmat, splits, penalty):
     L, dim = docmat.shape
     cuts = [0] + list(splits) + [L]
     cumvecs = np.cumsum(np.vstack((np.zeros((1, dim)), docmat)), axis=0)
-    return sum(norm(cumvecs[l, :] - cumvecs[r, :], ord=2)
+    return sum(
+        norm(cumvecs[l, :] - cumvecs[r, :], ord=2)
         for l, r in zip(cuts[:-1], cuts[1:])) - len(splits) * penalty
 
 
@@ -225,7 +227,7 @@ def get_gains(docmat, splits, width=None):
                                      slice(cen, end),  # right context
                                      slice(beg, end)]  # total context
 
-        gains.append([norm(docmat[slice_l, :].sum(axis=0), ord=2)
-                    + norm(docmat[slice_r, :].sum(axis=0), ord=2)
-                    - norm(docmat[slice_t, :].sum(axis=0), ord=2)])
+        gains.append([norm(docmat[slice_l, :].sum(axis=0), ord=2) +
+                      norm(docmat[slice_r, :].sum(axis=0), ord=2) -
+                      norm(docmat[slice_t, :].sum(axis=0), ord=2)])
     return gains
