@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
-from ..algorithm import split_greedy, split_optimal, P_k
-from ..algorithm import get_total, get_penalty, get_gains
+from ..algorithm import split_greedy, split_optimal, get_total, get_gains
+from ..tools import get_penalty, P_k
 
 DIM = 20
 
@@ -40,7 +40,8 @@ class TestTextSplit(unittest.TestCase):
     def test_split_optimal(self):
         seg = split_optimal(docA, penalty=penaltyA)
         self.assertEqual(len(seg.splits), len(seg.gains))
-        self.assertGreater(np.min(seg.gains), penaltyA)
+        print(len(seg.splits))
+        self.assertGreater(np.min(seg.gains) + 0.00001, penaltyA)
 
     def test_split_optimal_vs_greedy(self):
         docs = [np.random.random((100, DIM)) for _ in range(100)]

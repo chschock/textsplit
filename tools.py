@@ -1,51 +1,53 @@
-from sklearn.feature_extraction.text import CountVectorizer
-from .algorithm import split_greedy, split_optimal
+import numpy as np
+import random
+from .algorithm import split_greedy
 
-import nltk.data
-sentence_analyser = nltk.data.load('tokenizers/punkt/english.pickle')
+def get_segments(text_particles, segmentation):
+    """
+    Reorganize text particles by aggregating them to arrays described by the
+    provided `segmentation`.
+    """
+    segmented_text = []
+    L = len(text_particles)
+    for beg, end in zip([0] + segmentation.splits, segmentation.splits + [L]):
+        segmented_text.append(text_particles[beg:end])
+    return segmented_text
 
-def sentences_iter(texts):
-    for text in texts:
-        yield sentence_analyser.tokenize(text)
+def get_penalty(docmats, segment_len):
+    """
+    Determine penalty for segments having length `segment_len` on average.
+    This is achieved by stochastically rounding the expected number
+    of splits per document `max_splits` and taking the minimal split_gain that
+    occurs in split_greedy given `max_splits`.
+    """
+    penalties = []
+    for docmat in docmats:
+        avg_n_seg = docmat.shape[0] / segment_len
+        max_splits = int(avg_n_seg) + (random.random() < avg_n_seg % 1) - 1
+        if max_splits >= 1:
+            seg = split_greedy(docmat, max_splits=max_splits)
+            if seg.min_gain < np.inf:
+                penalties.append(seg.min_gain)
+    if len(penalties) > 0:
+        return np.mean(penalties)
+    raise ValueError('All documents too short for given segment_len.')
 
-def sentences_vectors_iter(sentenced_texts, wordvecs, vecr_kwargs=dict()):
-    """
-    Returns generator of pairs of a list of sentences and their vectorization
-    matrix. Sentence vectors are just the sum of word vectors in a sentence.
-    """
-    vecr = CountVectorizer(vocabulary=wordvecs.index, **vecr_kwargs)
 
-    for sentences in sentenced_texts:
-        yield (sentences, vecr.transform(sentences).dot(wordvecs))
+def P_k(splits_ref, splits_hyp, N):
+    """
+    Metric to evaluate reference splits against hypothesised splits.
+    Lower is better.
+    `N` is the text length.
+    """
+    k = round(N / (len(splits_ref) + 1) / 2 - 1)
+    ref = np.array(splits_ref, dtype=np.int32)
+    hyp = np.array(splits_hyp, dtype=np.int32)
 
-def split_texts_greedy(sentences_vectors_texts, penalty):
-    """
-    Takes an iterator over documents of pairs of sentences and their count
-    vectorization.
-    Returns generater with list of segments by splitting documents greedy
-    with given `penalty`.
-    """
-    for sentences, vectors in sentences_vectors_texts:
-        L = vectors.shape[0]
-        seg = split_greedy(vectors, penalty)
-        segmented_text = []
-        for beg, end in zip([0] + seg.splits, seg.splits + [L]):
-            segmented_text.append(sentences[beg:end])
-        yield segmented_text
+    def is_split_between(splits, l, r):
+        return np.sometrue(np.logical_and(splits - l > 0, splits - r < 0))
 
-def split_texts_optimal(sentences_vectors_texts, penalty, seg_limit=None):
-    """
-    Takes an iterator over documents of pairs of sentences and their count
-    vectorization.
-    Returns generater with list of segments by splitting documents greedy
-    with given `penalty`.
-    """
-    for i_text, (sentences, vectors) in enumerate(sentences_vectors_texts):
-        L = vectors.shape[0]
-        seg = split_optimal(vectors, penalty, seg_limit=seg_limit)
-        segmented_text = []
-        for beg, end in zip([0] + seg.splits, seg.splits + [L]):
-            segmented_text.append(sentences[beg:end])
-        if not seg.optimal:
-            print('segmentation not optimal for document %d' % i_text)
-        yield segmented_text
+    acc = 0
+    for i in range(N-k):
+        acc += is_split_between(ref, i, i+k) != is_split_between(hyp, i, i+k)
+
+    return acc / (N-k)
