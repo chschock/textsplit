@@ -56,9 +56,12 @@ run by limiting the number of segments. This is leveraged by the `get_penalty`
 function to approximately determine a penalty parameter for a desired average
 segment length computed over a set of documents.
 
-## Stream processing of texts on sentence level
-In `tools.py` you find functions that can tokenize a stream of texts into
-sentences and run the segmentation algorithms on them.
+To measure the accuracy of an algorithm against a given reference segmentation
+`P_k` is a commonly used metric described e.g. in above paper.
+
+The function `get_segments` simply applies a segmentation determined by one of
+the algorithms to e.g. the sentences of a text used when generating the
+segmentation.
 
 # Usage
 
