@@ -9,44 +9,59 @@ approach uses only word embeddings which are assumed to be less domain specific.
 See [https://arxiv.org/pdf/1503.05543.pdf] for an overview and an approach very
 similar to the one presented here.
 
-The algorithm uses word embeddings to form segment representations where segment
-splits are chosen such that the segments are coherent. This coherence is based
-on the idea of accumulated weighted cosine distance of segment words to the mean
-vector of a segment. The mean vector in cosine land is the normalized vector.
-More formally segments are chosen to maximize the quantity:
-<v, v/|v|> = 1/|v| <v, v> = |v|
-where v = \sum_i w_i is a segment vector, with word vectors w_i and |.| denotes
-the l2-norm.
-The accumulated weighted cosine distance turns up by a simple transformation:
-<v, v/|v|> = \sum_i <w_i, v/|v|> = \sum_i |w_i| <w_i/|w_i|, v/|v|>.
-Given the fact this is nothing else than the segment vector length |v|,
-we look for a sequence of split positions such that the sum of l2-norms of the
-segments induced by the splits is maximal.
-The optimal solution to this unconstrained problem is splitting a documents into
-as many segments as it has words. Therefore one has to introduce a penalty for
-the split operation, chosen such that the resulting number of segments seems
-appropriate.
+
+The algorithm uses word embeddings to find a segmentation where the splits are
+chosen such that the segments are coherent. This coherence can be described as
+accumulated weighted cosine similarity of the words of a segment to the mean
+vector of that segment.  More formally segments are chosen as to maximize the
+quantity |v|, where v is a segment vector and |.| denotes the l2-norm. The
+accumulated weighted cosine similarity turns up by a simple transformation:
+|v| = 1/|v| <v, v> = <v, v/|v|> = \sum_i <w_i, v/|v|> = \sum_i |w_i| <w_i/|w_i|, v/|v|>,
+where v = \sum_i w_i is the definition of the segment vector from word vectors
+w_i. The expansion gives a good intuition of what we try to achieve. As we
+usually compare word embeddings with cosine similarity, the last scalar product
+<w_i/|w_i|, v/|v|> is just the cosine similarity of a word w_i to the segment
+vector v. The weighting with the length of w_i suppresses frequent noise words,
+that typically have a shorter length.
+
+This leads to the interpretation that coherence corresponds to segment vector
+length, in the sense that two segment vectors of same length contain the same
+amount of information. This interpretation is of course only capturing
+information that we are given as input by means of the word embeddings, but it
+serves as an abstraction.
+
+# Formalization
+
+To optimize for segment vector length |v|, we look for a sequence of split
+positions such that the sum of l2-norms of the segment vectors formed by summing
+the words between the splits is maximal. Given this objective without
+constraints, the optimal solution is to split the document between every two
+subsequent words (triangle inequality). We have to impose some limit on the
+granularity of the segmentation to get useful results. This is done by a penalty
+for every split made, that counts against the vector norms, i.e. is subtracted
+from the sum of vector norms.
+
+Let Seg := {(0 = t_0 < t_i < ... < t_n = L) | s_i natural number} where L is a
+documents length. A segment [a, b[ comprises the words at positions a, a+1, ...,
+b-1. Let l(j, k) := |\sum_i=j^{k-1} w_i| denote the vector of segment [i, j[. We
+optimize the function f mapping elements of Seg to the real numbers with
+f: (t_0, ..., t_n) \mapsto \sum_{i=0}^{n-1} (l(t_{i-1}, t_i) + l(t_i, t_{i+1}) - penalty).
 
 # Algorithms
 
-There are two variants, a greedy and a dynamic programming approach that
-computes the optimal segmentation.
+There are two variants, a greedy that is fast and a dynamic programming approach
+that computes the optimal segmentation. Both depend on a penalty hyperparameter,
+that defined the granularity of the split.
 
 ## Greedy
 Split the text iteratively at the position where the gain is highest until this
-gain would be below a given penalty threshold.
-The gain is the sum of norms of the left and right segments minus the norm of
-the segment that is to be split.
-\sum_i=b^c \sum_i <w_i, w> + \sum_i=c^e \sum_i <w_i, w> - \sum_i=b^e <w_i, w>
-with b < c < e.
+gain would be below a given penalty threshold. The gain is the sum of norms of
+the left and right segments minus the norm of the segment that is to be split.
 
 ## Optimal (Dynamic Programming)
-Construct a matrix of accumulated scores with maximal scores at position (i, j)
-for making a segment (i, j) and given an already optimal segmentation up to i.
-The score is as described and the introduction of a split is demotivated by
-subtracting a penalty. This penalty has the same effect as the threshold of the
-greedy algorithm and for equal choice the splits are done similarly or for
-particular choices of texts results are identical.
+Iteratively construct a data structure storing the results of optimally
+splitting a prefix of the document. This results in a matrix storing a score
+for making a segment from position i to j, given a optimal segmentation up to i.
 
 # Tools
 
@@ -56,9 +71,11 @@ run by limiting the number of segments. This is leveraged by the `get_penalty`
 function to approximately determine a penalty parameter for a desired average
 segment length computed over a set of documents.
 
+## Measure accuracy of segmentation against reference
 To measure the accuracy of an algorithm against a given reference segmentation
 `P_k` is a commonly used metric described e.g. in above paper.
 
+## Apply segmentation definition to document
 The function `get_segments` simply applies a segmentation determined by one of
 the algorithms to e.g. the sentences of a text used when generating the
 segmentation.
@@ -67,11 +84,11 @@ segmentation.
 
 ## Input
 The algorithms are fed a matrix `docmat` containing vectors representing the
-content of a text. These vectors are supposed to have cosine similarity as their
-natural distance and length roughly corresponding to the content length of a
-text particle. Particles could be words in which case word2vec embeddings are a
-good choice as vectors. The width of `docmat` is the embedding dimension and the
-height the number of particles.
+content of a text. These vectors are supposed to have cosine similarity as a
+natural similarity measure and length roughly corresponding to the content
+length of a text particle. Particles could be words in which case word2vec
+embeddings are a good choice as vectors. The width of `docmat` is the embedding
+dimension and the height the number of particles.
 
 ## Split along sentence borders
 If you want to split text into paragraphs, you most likely already have a good
