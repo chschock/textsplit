@@ -35,8 +35,8 @@ def split_greedy(docmat, penalty=None, max_splits=None):
     Note: The splitting strategy suggests all resulting splits will have gain at
     least `penalty`. This is not the case as new splits can decrease the gain
     of others. This can be repaired by blocking positions where a split would
-    decreas the gain of an existing one to less than `penalty` but is not
-    impemented here.
+    decrease the gain of an existing one to less than `penalty` but is not
+    implemented here.
     """
     L, dim = docmat.shape
 
