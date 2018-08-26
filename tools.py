@@ -1,6 +1,6 @@
 import numpy as np
 import random
-from .algorithm import split_greedy
+from algorithm import split_greedy
 
 def get_segments(text_particles, segmentation):
     """
