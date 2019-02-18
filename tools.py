@@ -44,7 +44,7 @@ def P_k(splits_ref, splits_hyp, N):
     hyp = np.array(splits_hyp, dtype=np.int32)
 
     def is_split_between(splits, l, r):
-        return np.sometrue(np.logical_and(splits - l >= 0, splits - r < 0))
+        return np.sometrue(np.logical_and(splits - l > 0, splits - r < 0))
 
     acc = 0
     for i in range(N-k):
