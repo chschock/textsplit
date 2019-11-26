@@ -15,6 +15,7 @@ setup(
     install_requires=[
         'nose>=1.3.7',
         'numpy>=1.13.1',
+        'nose>=1.3.7',
     ],
     classifiers=(
         'Programming Language :: Python :: 3.6',

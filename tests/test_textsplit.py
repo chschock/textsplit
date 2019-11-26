@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
-from ..algorithm import split_greedy, split_optimal, get_total, get_gains
-from ..tools import get_penalty, P_k
+from ..textsplit.algorithm import split_greedy, split_optimal, get_total, get_gains
+from ..textsplit.tools import get_penalty, P_k
 
 DIM = 20
 
