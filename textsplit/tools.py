@@ -1,4 +1,5 @@
 import numpy as np
+import re
 import random
 from .algorithm import split_greedy
 
@@ -51,3 +52,14 @@ def P_k(splits_ref, splits_hyp, N):
         acc += is_split_between(ref, i, i+k) != is_split_between(hyp, i, i+k)
 
     return acc / (N-k)
+
+
+class SimpleSentenceTokenizer:
+
+    def __init__(self, breaking_chars='.!?'):
+        assert len(breaking_chars) > 0
+        self.breaking_chars = breaking_chars
+        self.prog = re.compile(r".+?[{}]\W+".format(breaking_chars), re.DOTALL)
+
+    def __call__(self, text):
+        return self.prog.findall(text)

@@ -98,9 +98,9 @@ it is usual practice.
 
 
 # Installation
-Clone the repo, then install the dependencies with
-```
-pip3 install -f requirements.txt
+Clone the repo, then install it from within the root folder with
+```bash
+pip install -e .
 ```
 
 # Getting Started
