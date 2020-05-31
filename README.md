@@ -96,14 +96,12 @@ idea of what potential sentence borders are. It makes sense not to give the word
 vectors as input but sentence vectors formed by e.g. the sum of word vectors, as
 it is usual practice.
 
+# Getting Started
 
-# Installation
-Clone the repo, then install it from within the root folder with
-```bash
-pip install -e .
+```
+pip install textsplit
 ```
 
-# Getting Started
 In the Jupyter notebook HowTo.ipynb you find code that demonstrates the use of
 the module. It downloads a corpus to trains word2vec vectors on and an example
 text for segmentation. You achieve better results if you compute word vectors on
