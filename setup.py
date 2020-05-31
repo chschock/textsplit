@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='textsplit',
-    version=0.9,
+    version=0.5,
     description='Segment documents into coherent parts using wordembeddings.',
     url='https://github.com/chschock/textsplit',
     long_description=open('README.md', 'r').read(),
@@ -15,13 +15,12 @@ setup(
     install_requires=[
         'nose>=1.3.7',
         'numpy>=1.13.1',
-        'nose>=1.3.7',
     ],
     classifiers=(
         'Programming Language :: Python :: 3.6',
-        'License :: MIT License',
-        'Operating System :: Linux',
-        'Topic :: NLP',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: OS Independent',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ),
     keywords='nlp text segmentation paragraph embeddings',
 )
